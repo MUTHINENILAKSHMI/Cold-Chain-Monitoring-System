@@ -193,7 +193,7 @@ def get_connection():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="NewPassword@123",
+        password="mypassword",
         database="cold_chain_db"
     )
 
