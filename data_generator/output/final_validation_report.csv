@@ -1,0 +1,6 @@
+edge_case,status,validation_type,count
+Physical range violation,DETECTED,Actual data detection,1
+Missing sensor interval,DETECTED,Actual data detection,1
+Delivery before departure,DETECTED,Actual data detection,1
+Wrong product threshold,DETECTED,Actual sensor-data policy test,1152
+Excursion duration undercount,DETECTED,Actual test-data validation,1

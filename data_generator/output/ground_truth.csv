@@ -1,0 +1,6 @@
+anomaly_id,anomaly_type,shipment_id,expected_issue,details
+1,PHYSICAL_RANGE_VIOLATION,SHP-GEN-000001,Temperature exceeds physical sensor range,One reading is set to 75 C
+2,MISSING_SENSOR_INTERVAL,SHP-GEN-000002,Missing 5-minute sensor reading,One scheduled reading is omitted
+3,DELIVERED_BEFORE_DEPARTURE,SHP-GEN-000003,Delivery timestamp is before departure,Delivery is set one hour before departure
+4,WRONG_PRODUCT_THRESHOLD,SHP-GEN-000004,Incorrect product threshold used,Test by comparing product with another product policy
+5,EXCURSION_DURATION_UNDERCOUNT,SHP-GEN-000005,Recorded duration is lower than actual duration,Test by comparing stored duration with start and end times

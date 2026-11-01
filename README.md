@@ -1,164 +1,159 @@
 # ❄️ Cold Chain Monitoring System
 
-## 1. Project Overview
+## Temperature & Humidity Monitoring for Smart Logistics
 
-The Cold Chain Monitoring System is a database-driven application developed to monitor and analyze shipment information, sensor temperature readings, temperature excursions, and corrective actions.
+### 1. Project Overview
 
-The system uses Python, MySQL, and Streamlit to provide an interactive dashboard for viewing shipment details, analyzing temperature data, identifying excursions, and tracking corrective actions.
+The Cold Chain Monitoring System is a data-driven application developed to monitor temperature and humidity conditions during the storage and transportation of temperature-sensitive products.
 
-**Note:** This project uses synthetic sensor data for demonstration purposes. It is not connected to live IoT sensors.
+The system helps users monitor shipments, track sensor readings, identify temperature excursions, and manage corrective actions. It provides visibility into shipment conditions and helps maintain product quality throughout the transportation process.
 
-## 2. Objectives
+### 2. Objectives
 
-- Manage shipment, product, container, and sensor information.
-- Store and analyze sensor temperature readings.
-- Identify temperature excursions.
-- Analyze excursion severity and status.
+- Monitor temperature and humidity readings.
+- Track shipments and containers.
+- Identify abnormal temperature conditions.
+- Detect and analyze temperature excursions.
+- Maintain shipment custody and event records.
 - Track corrective actions.
-- Generate reports and download data as CSV files.
+- Generate monitoring and validation reports.
 
-## 3. Technologies Used
+### 3. Technologies Used
 
-- **Python** – Application development and data processing.
-- **MySQL** – Database management and storage.
-- **Streamlit** – Interactive web application.
-- **Pandas** – Data handling and analysis.
-- **Plotly** – Interactive charts and visualizations.
-- **MySQL Connector** – Python and MySQL connectivity.
+- **Programming Language:** Python
+- **Database:** MySQL
+- **Frontend / Dashboard:** Streamlit
+- **Libraries:** Pandas, NumPy
+- **Data Format:** CSV
 
-## 4. Database Structure
+### 4. Key Features
 
-The project uses the following 12 MySQL tables:
+- Interactive dashboard displaying shipment and monitoring information.
+- Temperature and humidity summaries.
+- Shipment and container tracking.
+- Sensor reading analysis.
+- Excursion monitoring and severity analysis.
+- Corrective action tracking.
+- Database validation and downloadable reports.
 
-1. products
-2. shipments
-3. containers
-4. sensors
-5. threshold_policies
-6. shipment_containers
-7. route_stops
-8. container_sensor_assignments
-9. sensor_readings
-10. excursions
-11. custody_events
-12. corrective_actions
+### 5. Database Entities
 
-## 5. Application Modules
+The database contains the following entities:
 
-### Dashboard
-- Displays total shipments and other key statistics.
-- Shows shipment status and excursion severity charts.
+1. Product
+2. Shipment
+3. Container
+4. Sensor
+5. Sensor Reading
+6. Route Stop
+7. Threshold Policy
+8. Excursion
+9. Custody Event
+10. Corrective Action
 
-### Shipments
-- Displays shipment information.
-- Supports searching and downloading shipment records.
+Primary keys and foreign keys are used to maintain relationships and data integrity.
 
-### Temperature Monitoring
-- Displays available sensor temperature readings.
-- Provides temperature trend charts.
-- Supports CSV data downloads.
+### 6. Synthetic Data Generation
 
-### Excursion Analysis
-- Displays temperature excursion details.
-- Analyzes excursion severity and status.
+The project uses a Python-based synthetic data generator with a fixed random seed (`20261022`) to support reproducible testing.
 
-### Corrective Actions
-- Displays corrective action records.
-- Tracks action status and related information.
+The generated dataset includes:
 
-## 6. Project Structure
+- 1,000 shipments
+- 300 containers
+- Sensor readings at five-minute intervals
+- Product-specific temperature thresholds
+- Temperature and humidity measurements
+- Labelled edge cases and ground-truth records
+
+### 7. Validation and Testing
+
+The project includes validation checks for:
+
+- Primary key uniqueness
+- Foreign key integrity
+- Missing values
+- Shipment date consistency
+- Route-stop timestamp consistency
+- Shipment and custody event matching
+- Physical temperature range violations
+- Sensor reading quality
+
+Reproducibility and labelled edge cases are also tested using separate Python scripts.
+
+### 8. Project Structure
 
 ```text
 Cold_Chain_Monitoring/
 │
 ├── app.py
+├── database.sql
+├── schema.sql
+├── ground_truth.csv
+├── requirements.txt
+├── validate_project.py
+├── validation_report.csv
+├── validation_details.csv
 ├── README.md
-└── requirements.txt
+│
+└── data_generator/
+    ├── generate_data.py
+    ├── generate_data_test.py
+    ├── check_reproducibility.py
+    ├── detect_excursions.py
+    ├── validate_edge_cases.py
+    ├── final_validation.py
+    └── output/
 ```
 
-## 7. Installation and Setup
+### 9. Installation and Execution
 
-### Step 1: Install Python Dependencies
+**Step 1: Clone the repository**
 
-Open the terminal in the project folder and run:
+```bash
+git clone YOUR_GITHUB_REPOSITORY_URL
+cd Cold_Chain_Monitoring
+```
+
+**Step 2: Install dependencies**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 2: Create the MySQL Database
+**Step 3: Configure MySQL**
 
-Open MySQL Workbench and execute the SQL scripts to create the database and tables and insert the sample data.
+Create the database and import the provided SQL schema and seed data. Configure database connection settings before running the application.
 
-Database name:
-
-```sql
-cold_chain_db
-```
-
-### Step 3: Configure Database Connection
-
-Open `app.py` and update the MySQL connection details with your local credentials.
-
-```python
-def get_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="YOUR_MYSQL_PASSWORD",
-        database="cold_chain_db"
-    )
-```
-
-Replace `YOUR_MYSQL_PASSWORD` with your own MySQL password. Do not upload your actual password to GitHub.
-
-### Step 4: Run the Application
-
-Execute the following command:
+**Step 4: Run the application**
 
 ```bash
 streamlit run app.py
 ```
 
-The application will open in your browser at:
+Open the local URL displayed in the terminal, usually:
 
 ```text
 http://localhost:8501
 ```
 
-## 8. Key Features
+### 10. Validation
 
-- Interactive dashboard.
-- Shipment information management and analysis.
-- Sensor temperature monitoring.
-- Temperature excursion analysis.
-- Corrective action tracking.
-- Interactive charts and visualizations.
-- CSV report downloads.
-- MySQL database integration.
+Run the database validation script:
 
-## 9. Sample Dataset Information
+```bash
+python validate_project.py
+```
 
-The project contains sample synthetic data:
+The script generates:
 
-- 10 products
-- 1,000 shipments
-- 300 containers
-- 300 sensors
-- 5,760 sensor readings
-- 39 excursions
-- 39 corrective actions
+- `validation_report.csv`
+- `validation_details.csv`
 
-**Data limitations:** Sensor readings are available for the first 10 shipments only. Humidity readings are currently NULL. The data is synthetic and is used for project demonstration.
+### 11. Expected Outcome
 
-## 10. Future Enhancements
+The application provides a centralized dashboard to monitor shipment conditions, analyze temperature and humidity readings, identify excursions, and track corrective actions.
 
-- Integration with real-time IoT sensors.
-- Live temperature and humidity monitoring.
-- Email and SMS alerts for temperature excursions.
-- Advanced analytics and predictive models.
-- Deployment to a cloud platform.
+### 12. Author
 
-## 11. Conclusion
-
-The Cold Chain Monitoring System provides an interactive platform to manage shipment information, analyze sensor temperature data, identify temperature excursions, and track corrective actions. It demonstrates the integration of Python, MySQL, and Streamlit to build a database-driven monitoring application.
+Developed as a Cold Chain Monitoring System project using Python, MySQL, and Streamlit.

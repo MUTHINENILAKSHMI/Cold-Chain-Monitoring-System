@@ -1,0 +1,2 @@
+issue_type,table_name,record_id,description
+PHYSICAL_TEMPERATURE_RANGE,sensor_readings,RDG-SNS-CNT-000001-202601010600,Temperature 75.00°C is outside the physical range -40°C to 70°C; quality status: SUSPICIOUS

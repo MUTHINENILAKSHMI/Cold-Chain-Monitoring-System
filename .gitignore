@@ -1,6 +1,15 @@
+# Large generated sensor datasets
+data_generator/output/sensor_readings.csv
+data_generator/output/duration_test_readings.csv
+data_generator/reproducibility_test_output/
+
+# Python cache
 __pycache__/
 *.pyc
-.venv/
+
+# Virtual environments
 venv/
+.venv/
+
+# Environment variables and secrets
 .env
-.streamlit/secrets.toml

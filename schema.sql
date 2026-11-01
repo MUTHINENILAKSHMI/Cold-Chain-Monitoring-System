@@ -2098,4 +2098,459 @@ FROM excursions
 WHERE duration_minutes < TIMESTAMPDIFF(
     MINUTE, start_time, end_time
 );
+USE cold_chain_db;
+
+DESCRIBE shipments;
+DESCRIBE sensor_readings;
+
+USE cold_chain_db;
+
+SELECT
+    shipment_id,
+    actual_departure,
+    actual_delivery
+FROM shipments
+WHERE actual_departure IS NOT NULL
+  AND actual_delivery IS NOT NULL
+  AND actual_delivery < actual_departure;
   
+  SELECT
+    reading_id,
+    shipment_id,
+    sensor_id,
+    recorded_at,
+    temperature_c
+FROM sensor_readings
+WHERE temperature_c < -40
+   OR temperature_c > 70;
+   
+   SELECT shipment_id, planned_departure, actual_departure,
+       planned_delivery, actual_delivery
+FROM shipments
+WHERE shipment_id IN (
+    'SHP-2026-000001',
+    'SHP-GEN-000001',
+    'SHP-GEN-000003',
+    'SHP-GEN-000005'
+);
+SELECT shipment_id
+FROM shipments
+ORDER BY shipment_id
+LIMIT 10;
+
+SELECT
+    shipment_id,
+    planned_departure,
+    actual_departure,
+    planned_delivery,
+    actual_delivery
+FROM shipments
+WHERE actual_delivery < actual_departure;
+SELECT
+    reading_id,
+    shipment_id,
+    sensor_id,
+    recorded_at,
+    temperature_c
+FROM sensor_readings
+WHERE temperature_c < -40
+   OR temperature_c > 70;
+   
+   SELECT
+    e.*,
+    s.shipment_id
+FROM excursions e
+JOIN shipments s
+    ON e.shipment_id = s.shipment_id
+WHERE s.shipment_id = 'SHP-2026-000001';
+DESCRIBE excursions;
+SELECT
+    excursion_id,
+    shipment_id,
+    start_reading_id,
+    end_reading_id,
+    start_time,
+    end_time,
+    duration_minutes,
+    severity,
+    excursion_status
+FROM excursions
+WHERE excursion_id LIKE 'EXC-000001-%'
+ORDER BY excursion_id;
+SELECT
+    excursion_id,
+    shipment_id,
+    shipment_id IS NULL AS is_null,
+    CHAR_LENGTH(shipment_id) AS id_length,
+    TIMESTAMPDIFF(MINUTE, start_time, end_time) AS calculated_minutes,
+    duration_minutes
+FROM excursions
+WHERE excursion_id = 'EXC-000001-004';
+SELECT
+    excursion_id,
+    start_time,
+    end_time,
+    duration_minutes,
+    TIMESTAMPDIFF(MINUTE, start_time, end_time) AS calculated_minutes
+FROM excursions
+WHERE end_time IS NOT NULL
+  AND duration_minutes <> TIMESTAMPDIFF(MINUTE, start_time, end_time);
+  SELECT
+    COUNT(*) AS total_duration_mismatches
+FROM excursions
+WHERE end_time IS NOT NULL
+AND duration_minutes <> TIMESTAMPDIFF(MINUTE, start_time, end_time);
+SELECT
+    e.excursion_id,
+    e.shipment_id,
+    e.sensor_id,
+    e.policy_id,
+    e.start_reading_id,
+    e.end_reading_id,
+    e.start_time,
+    e.end_time,
+    e.duration_minutes,
+    s.actual_departure,
+    s.actual_delivery
+FROM excursions e
+JOIN shipments s
+    ON e.shipment_id = s.shipment_id
+WHERE e.excursion_id = 'EXC-000009-001';
+SELECT
+    reading_id,
+    recorded_at,
+    temperature_c,
+    quality_status
+FROM sensor_readings
+WHERE reading_id IN (
+    'RDG-SNS-CNT-000009-202601050600',
+    'RDG-SNS-CNT-000009-202601070555'
+)
+ORDER BY recorded_at;
+DESCRIBE threshold_policies;
+SELECT
+    s.shipment_id,
+    s.product_id,
+    p.product_name,
+    tp.policy_id,
+    tp.min_temperature,
+    tp.max_temperature,
+    tp.max_excursion_minutes,
+    tp.policy_status
+FROM shipments s
+JOIN products p
+    ON s.product_id = p.product_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+WHERE s.shipment_id = 'SHP-2026-000009'
+  AND tp.policy_status = 'ACTIVE';
+  SELECT
+    recorded_at,
+    temperature_c,
+    quality_status
+FROM sensor_readings
+WHERE shipment_id = 'SHP-2026-000009'
+  AND sensor_id = 'SNS-CNT-000009'
+  AND recorded_at BETWEEN
+      '2026-01-05 06:00:00'
+      AND '2026-01-07 05:55:00'
+ORDER BY recorded_at
+LIMIT 20;
+SELECT
+    COUNT(*) AS total_readings,
+    SUM(temperature_c IS NULL) AS missing_temperatures,
+    SUM(temperature_c > -15) AS above_maximum,
+    SUM(temperature_c < -20) AS below_minimum,
+    MIN(temperature_c) AS minimum_recorded,
+    MAX(temperature_c) AS maximum_recorded
+FROM sensor_readings
+WHERE shipment_id = 'SHP-2026-000009'
+  AND sensor_id = 'SNS-CNT-000009'
+  AND recorded_at BETWEEN
+      '2026-01-05 06:00:00'
+      AND '2026-01-07 05:55:00';
+      
+SELECT
+    excursion_id,
+    shipment_id,
+    duration_minutes,
+    TIMESTAMPDIFF(MINUTE, start_time, end_time) AS actual_duration,
+    TIMESTAMPDIFF(MINUTE, start_time, end_time)
+        - duration_minutes AS duration_difference
+FROM excursions
+WHERE end_time IS NOT NULL
+  AND duration_minutes <> TIMESTAMPDIFF(MINUTE, start_time, end_time);
+SELECT *
+FROM corrective_actions
+WHERE excursion_id IN (
+    'EXC-000001-001',
+    'EXC-000009-001'
+);
+SELECT *
+FROM custody_events
+WHERE shipment_id IN (
+    'SHP-2026-000001',
+    'SHP-2026-000009'
+)
+ORDER BY shipment_id, event_time;
+DESCRIBE custody_events;
+SELECT
+    s.shipment_id,
+    s.actual_departure,
+    s.actual_delivery,
+    MAX(CASE
+        WHEN c.event_type = 'PICKUP'
+        THEN c.event_time
+    END) AS pickup_time,
+    MAX(CASE
+        WHEN c.event_type = 'DELIVERED'
+        THEN c.event_time
+    END) AS custody_delivery_time
+FROM shipments s
+JOIN custody_events c
+    ON s.shipment_id = c.shipment_id
+WHERE s.shipment_id IN (
+    'SHP-2026-000001',
+    'SHP-2026-000009'
+)
+GROUP BY
+    s.shipment_id,
+    s.actual_departure,
+    s.actual_delivery;
+    
+    SELECT
+    s.shipment_id,
+    s.actual_departure,
+    s.actual_delivery,
+    MAX(CASE
+        WHEN c.event_type = 'DELIVERED'
+        THEN c.event_time
+    END) AS custody_delivery_time
+FROM shipments s
+LEFT JOIN custody_events c
+    ON s.shipment_id = c.shipment_id
+GROUP BY
+    s.shipment_id,
+    s.actual_departure,
+    s.actual_delivery
+HAVING
+    s.actual_delivery IS NULL
+    OR custody_delivery_time IS NULL
+    OR s.actual_delivery <> custody_delivery_time;
+    SELECT *
+FROM shipments
+WHERE shipment_id = 'SHP-2026-000001';
+SHOW TABLES;
+SELECT *
+FROM shipment_details_view
+WHERE shipment_id = 'SHP-2026-000001';
+SELECT *
+FROM excursion_report_view
+WHERE shipment_id = 'SHP-2026-000001';
+SELECT
+    excursion_id,
+    start_time,
+    end_time,
+    duration_minutes,
+    severity,
+    excursion_status
+FROM excursions
+WHERE shipment_id = 'SHP-2026-000001'
+ORDER BY start_time;
+SELECT
+    e.excursion_id,
+    e.start_time,
+    e.end_time,
+    MIN(r.temperature_c) AS min_temperature,
+    MAX(r.temperature_c) AS max_temperature,
+    COUNT(r.reading_id) AS reading_count
+FROM excursions e
+LEFT JOIN sensor_readings r
+    ON e.shipment_id = r.shipment_id
+   AND r.recorded_at BETWEEN e.start_time AND e.end_time
+WHERE e.shipment_id = 'SHP-2026-000001'
+GROUP BY
+    e.excursion_id,
+    e.start_time,
+    e.end_time
+ORDER BY e.start_time;
+SELECT *
+FROM threshold_policies
+WHERE product_id = 'PRD-0001';
+SELECT
+    sr.shipment_id,
+    COUNT(*) AS total_readings,
+    SUM(sr.temperature_c < tp.min_temperature) AS below_limit,
+    SUM(sr.temperature_c BETWEEN tp.min_temperature
+        AND tp.max_temperature) AS within_limit,
+    SUM(sr.temperature_c > tp.max_temperature) AS above_limit
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+GROUP BY sr.shipment_id
+ORDER BY sr.shipment_id
+LIMIT 10;
+
+SELECT
+    sr.shipment_id,
+    COUNT(*) AS total_readings,
+    SUM(
+        CASE
+            WHEN sr.temperature_c < tp.min_temperature
+              OR sr.temperature_c > tp.max_temperature
+            THEN 1
+            ELSE 0
+        END
+    ) AS excursion_readings
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+GROUP BY sr.shipment_id
+ORDER BY sr.shipment_id
+LIMIT 10;
+SELECT
+    shipment_id,
+    COUNT(*) AS total_excursions,
+    SUM(CASE WHEN severity = 'HIGH' THEN 1 ELSE 0 END) AS high_count,
+    SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END) AS critical_count
+FROM excursions
+WHERE shipment_id IN (
+    'SHP-2026-000001',
+    'SHP-2026-000002',
+    'SHP-2026-000003',
+    'SHP-2026-000004',
+    'SHP-2026-000005',
+    'SHP-2026-000006',
+    'SHP-2026-000007',
+    'SHP-2026-000008',
+    'SHP-2026-000009',
+    'SHP-2026-000010'
+)
+GROUP BY shipment_id
+ORDER BY shipment_id;
+SELECT
+    sr.shipment_id,
+    sr.temperature_c,
+    tp.min_temperature,
+    tp.max_temperature,
+    sr.recorded_at
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+WHERE sr.shipment_id = 'SHP-2026-000007'
+ORDER BY sr.recorded_at
+LIMIT 10;
+SELECT *
+FROM excursions
+WHERE shipment_id = 'SHP-2026-000007';
+
+SELECT
+    reading_id,
+    shipment_id,
+    sensor_id,
+    temperature_c,
+    quality_status,
+    recorded_at
+FROM sensor_readings
+WHERE temperature_c < -40
+   OR temperature_c > 70;
+   SELECT
+    shipment_id,
+    actual_departure,
+    actual_delivery,
+    status
+FROM shipments
+WHERE actual_delivery < actual_departure;
+DESCRIBE custody_events;
+SELECT
+    custody_event_id,
+    shipment_id,
+    event_type,
+    event_time,
+    from_party,
+    to_party,
+    location,
+    remarks
+FROM custody_events
+WHERE shipment_id = 'SHP-2026-000001'
+ORDER BY event_time;
+SELECT
+    s.shipment_id,
+    s.actual_delivery AS shipment_delivery,
+    c.event_time AS custody_delivery
+FROM shipments s
+JOIN custody_events c
+    ON s.shipment_id = c.shipment_id
+WHERE c.event_type = 'DELIVERED'
+  AND s.actual_delivery <> c.event_time;
+  DESCRIBE route_stops;
+  SELECT
+    COUNT(*) AS total_records,
+    SUM(route_stop_id IS NULL) AS missing_route_stop_id,
+    SUM(shipment_id IS NULL) AS missing_shipment_id,
+    SUM(stop_name IS NULL) AS missing_stop_name,
+    SUM(city IS NULL) AS missing_city,
+    SUM(planned_arrival IS NULL) AS missing_planned_arrival,
+    SUM(actual_arrival IS NULL) AS missing_actual_arrival,
+    SUM(planned_departure IS NULL) AS missing_planned_departure,
+    SUM(actual_departure IS NULL) AS missing_actual_departure,
+    SUM(status IS NULL) AS missing_status
+FROM route_stops;
+
+SELECT
+    status,
+    COUNT(*) AS total_stops,
+    SUM(actual_arrival IS NULL) AS missing_arrival,
+    SUM(actual_departure IS NULL) AS missing_departure
+FROM route_stops
+GROUP BY status;
+
+SELECT
+    route_stop_id,
+    shipment_id,
+    status,
+    actual_arrival,
+    actual_departure
+FROM route_stops
+WHERE
+    (status = 'PLANNED'
+        AND (actual_arrival IS NOT NULL
+        OR actual_departure IS NOT NULL))
+    OR
+    (status = 'ARRIVED'
+        AND (actual_arrival IS NULL
+        OR actual_departure IS NOT NULL))
+    OR
+    (status = 'DEPARTED'
+        AND (actual_arrival IS NULL
+        OR actual_departure IS NULL));
+SELECT
+    shipment_id,
+    planned_departure,
+    actual_departure,
+    planned_delivery,
+    actual_delivery,
+    status
+FROM shipments
+WHERE shipment_id = 'SHP-2026-000001';
+DESCRIBE custody_events;
+SELECT
+    custody_event_id,
+    shipment_id,
+    event_type,
+    event_time,
+    from_party,
+    to_party,
+    location
+FROM custody_events
+WHERE shipment_id = 'SHP-2026-000001'
+ORDER BY event_time;
+UPDATE shipments
+SET actual_delivery = '2026-01-03 06:00:00'
+WHERE shipment_id = 'SHP-2026-000001';
