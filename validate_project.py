@@ -1,13 +1,13 @@
 import mysql.connector
 import pandas as pd
+import os
 
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "password@123",
+    "password": os.getenv("DB_PASSWORD"),
     "database": "cold_chain_db"
 }
-
 def validate_database():
     connection = mysql.connector.connect(**DB_CONFIG)
 

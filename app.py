@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import mysql.connector
 import plotly.express as px
+import os
 
 # --------------------------------------------------
 # PAGE CONFIGURATION
@@ -193,7 +194,7 @@ def get_connection():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="NewPassword@123",
+        password=os.getenv("DB_PASSWORD"),
         database="cold_chain_db"
     )
 
