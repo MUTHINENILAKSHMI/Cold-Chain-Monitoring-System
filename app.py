@@ -193,7 +193,7 @@ def get_connection():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="mypassword",
+        password="NewPassword@123",
         database="cold_chain_db"
     )
 
@@ -511,96 +511,236 @@ elif page == "Shipments":
 
 
 # --------------------------------------------------
-# TEMPERATURE MONITORING PAGE
+# TEMPERATURE & HUMIDITY MONITORING PAGE
 # --------------------------------------------------
 
 elif page == "Temperature Monitoring":
 
     st.markdown(
-        '<div class="page-heading">🌡️ Temperature Monitoring</div>',
+        '<div class="page-heading">🌡️ Temperature & Humidity Monitoring</div>',
         unsafe_allow_html=True
     )
 
     st.markdown(
-        '<div class="page-subtitle">Analyze recorded sensor temperatures.</div>',
+        '<div class="page-subtitle">Analyze temperature and humidity sensor readings for each shipment.</div>',
         unsafe_allow_html=True
     )
 
-    temperature_data = load_data("""
+    # One row per shipment. NULL humidity values are ignored by AVG/MIN/MAX.
+    monitoring_query = """
         SELECT
             shipment_id,
             COUNT(*) AS total_readings,
+            COUNT(temperature_c) AS temperature_readings,
             ROUND(AVG(temperature_c), 2) AS average_temperature,
             ROUND(MIN(temperature_c), 2) AS minimum_temperature,
-            ROUND(MAX(temperature_c), 2) AS maximum_temperature
+            ROUND(MAX(temperature_c), 2) AS maximum_temperature,
+            COUNT(humidity_pct) AS humidity_readings,
+            ROUND(AVG(humidity_pct), 2) AS average_humidity,
+            ROUND(MIN(humidity_pct), 2) AS minimum_humidity,
+            ROUND(MAX(humidity_pct), 2) AS maximum_humidity
         FROM sensor_readings
-        WHERE temperature_c IS NOT NULL
         GROUP BY shipment_id
         ORDER BY shipment_id
-    """)
+    """
 
-    if not temperature_data.empty:
+    monitoring_data = load_data(monitoring_query)
 
-        c1, c2, c3 = st.columns(3)
-
-        c1.metric(
-            "Recorded Shipments",
-            len(temperature_data)
-        )
-
-        c2.metric(
-            "Average Temperature",
-            f"{temperature_data['average_temperature'].mean():.2f} °C"
-        )
-
-        c3.metric(
-            "Maximum Temperature",
-            f"{temperature_data['maximum_temperature'].max():.2f} °C"
-        )
-
-        st.markdown("### 📈 Temperature by Shipment")
-
-        fig = px.bar(
-            temperature_data,
-            x="shipment_id",
-            y="average_temperature",
-            color="average_temperature",
-            color_continuous_scale="Blues",
-            text="average_temperature",
-            labels={
-                "shipment_id": "Shipment ID",
-                "average_temperature": "Average Temperature (°C)"
-            }
-        )
-
-        fig.update_layout(
-            paper_bgcolor="white",
-            plot_bgcolor="white",
-            font_color="#000000",
-            title_font_color="#000000"
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
+    if monitoring_data.empty:
+        st.info("No sensor readings are available yet.")
+    else:
+        # -----------------------------
+        # TEMPERATURE SUMMARY
+        # -----------------------------
         st.markdown("### 🌡️ Temperature Summary")
 
-        st.dataframe(
-            temperature_data,
-            use_container_width=True,
-            hide_index=True
-        )
+        temp_data = monitoring_data[
+            monitoring_data["temperature_readings"] > 0
+        ].copy()
+
+        if not temp_data.empty:
+            temp_count = int(temp_data["temperature_readings"].sum())
+            avg_temp = load_data("""
+                SELECT ROUND(AVG(temperature_c), 2) AS value
+                FROM sensor_readings
+                WHERE temperature_c IS NOT NULL
+            """).iloc[0]["value"]
+
+            max_temp = load_data("""
+                SELECT ROUND(MAX(temperature_c), 2) AS value
+                FROM sensor_readings
+                WHERE temperature_c IS NOT NULL
+            """).iloc[0]["value"]
+
+            min_temp = load_data("""
+                SELECT ROUND(MIN(temperature_c), 2) AS value
+                FROM sensor_readings
+                WHERE temperature_c IS NOT NULL
+            """).iloc[0]["value"]
+
+            t1, t2, t3, t4 = st.columns(4)
+            t1.metric("Temperature Readings", f"{temp_count:,}")
+            t2.metric("Average Temperature", f"{float(avg_temp):.2f} °C")
+            t3.metric("Minimum Temperature", f"{float(min_temp):.2f} °C")
+            t4.metric("Maximum Temperature", f"{float(max_temp):.2f} °C")
+
+            temp_chart_data = temp_data.dropna(
+                subset=["average_temperature"]
+            )
+
+            if not temp_chart_data.empty:
+                fig_temp = px.bar(
+                    temp_chart_data,
+                    x="shipment_id",
+                    y="average_temperature",
+                    color="average_temperature",
+                    color_continuous_scale="Blues",
+                    hover_data=[
+                        "minimum_temperature",
+                        "maximum_temperature",
+                        "temperature_readings"
+                    ],
+                    labels={
+                        "shipment_id": "Shipment ID",
+                        "average_temperature": "Average Temperature (°C)",
+                        "minimum_temperature": "Minimum Temperature (°C)",
+                        "maximum_temperature": "Maximum Temperature (°C)",
+                        "temperature_readings": "Number of Readings"
+                    },
+                    title="Average Temperature by Shipment"
+                )
+                fig_temp.update_layout(
+                    paper_bgcolor="white",
+                    plot_bgcolor="white",
+                    font_color="#000000"
+                )
+                st.plotly_chart(fig_temp, use_container_width=True)
+
+            st.dataframe(
+                temp_data[
+                    [
+                        "shipment_id",
+                        "temperature_readings",
+                        "average_temperature",
+                        "minimum_temperature",
+                        "maximum_temperature"
+                    ]
+                ],
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No temperature readings are available.")
+
+        st.divider()
+
+        # -----------------------------
+        # HUMIDITY SUMMARY
+        # -----------------------------
+        st.markdown("### 💧 Humidity Summary")
+
+        humidity_data = monitoring_data[
+            monitoring_data["humidity_readings"] > 0
+        ].copy()
+
+        if not humidity_data.empty:
+            humidity_totals = load_data("""
+                SELECT
+                    COUNT(humidity_pct) AS reading_count,
+                    ROUND(AVG(humidity_pct), 2) AS average_humidity,
+                    ROUND(MIN(humidity_pct), 2) AS minimum_humidity,
+                    ROUND(MAX(humidity_pct), 2) AS maximum_humidity
+                FROM sensor_readings
+                WHERE humidity_pct IS NOT NULL
+            """).iloc[0]
+
+            h1, h2, h3, h4 = st.columns(4)
+            h1.metric(
+                "Humidity Readings",
+                f"{int(humidity_totals['reading_count']):,}"
+            )
+            h2.metric(
+                "Average Humidity",
+                f"{float(humidity_totals['average_humidity']):.2f} %"
+            )
+            h3.metric(
+                "Minimum Humidity",
+                f"{float(humidity_totals['minimum_humidity']):.2f} %"
+            )
+            h4.metric(
+                "Maximum Humidity",
+                f"{float(humidity_totals['maximum_humidity']):.2f} %"
+            )
+
+            humidity_chart_data = humidity_data.dropna(
+                subset=["average_humidity"]
+            )
+
+            if not humidity_chart_data.empty:
+                fig_humidity = px.bar(
+                    humidity_chart_data,
+                    x="shipment_id",
+                    y="average_humidity",
+                    color="average_humidity",
+                    color_continuous_scale="Teal",
+                    hover_data=[
+                        "minimum_humidity",
+                        "maximum_humidity",
+                        "humidity_readings"
+                    ],
+                    labels={
+                        "shipment_id": "Shipment ID",
+                        "average_humidity": "Average Humidity (%)",
+                        "minimum_humidity": "Minimum Humidity (%)",
+                        "maximum_humidity": "Maximum Humidity (%)",
+                        "humidity_readings": "Number of Readings"
+                    },
+                    title="Average Humidity by Shipment"
+                )
+                fig_humidity.update_layout(
+                    paper_bgcolor="white",
+                    plot_bgcolor="white",
+                    font_color="#000000"
+                )
+                st.plotly_chart(fig_humidity, use_container_width=True)
+
+            st.dataframe(
+                humidity_data[
+                    [
+                        "shipment_id",
+                        "humidity_readings",
+                        "average_humidity",
+                        "minimum_humidity",
+                        "maximum_humidity"
+                    ]
+                ],
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info(
+                "Humidity readings are not available in the current database. "
+                "The humidity monitoring section is ready, but it will display "
+                "metrics and charts after humidity_pct values are generated "
+                "and stored in sensor_readings."
+            )
+
+        st.divider()
+
+        # -----------------------------
+        # DOWNLOAD REPORT
+        # -----------------------------
+        st.markdown("### 📥 Download Monitoring Report")
+
+        report_data = monitoring_data.copy()
+        report_csv = report_data.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            "⬇️ Download Temperature Report",
-            temperature_data.to_csv(index=False),
-            "temperature_report.csv",
-            "text/csv"
+            label="⬇️ Download Temperature & Humidity Report",
+            data=report_csv,
+            file_name="temperature_humidity_report.csv",
+            mime="text/csv"
         )
-
-    else:
-        st.info("No temperature readings available.")
-
-
 # --------------------------------------------------
 # EXCURSION ANALYSIS PAGE
 # --------------------------------------------------

@@ -1250,3 +1250,852 @@ SELECT 'corrective_actions', COUNT(*) FROM corrective_actions;
 DESCRIBE sensor_readings;
 DESCRIBE excursions;
 DESCRIBE corrective_actions;
+
+SELECT
+    COUNT(*) AS total_readings,
+    COUNT(temperature_c) AS temperature_readings,
+    COUNT(humidity_pct) AS humidity_readings
+FROM sensor_readings;
+DESCRIBE threshold_policies;
+SELECT
+    product_id,
+    min_humidity,
+    max_humidity,
+    policy_status
+FROM threshold_policies;
+DESCRIBE excursions;
+
+SELECT
+    excursion_type,
+    COUNT(*) AS total_excursions
+FROM excursions
+GROUP BY excursion_type;
+
+SELECT
+    COUNT(*) AS total_readings,
+    COUNT(DISTINCT shipment_id) AS shipments,
+    COUNT(DISTINCT sensor_id) AS sensors,
+    MIN(recorded_at) AS first_reading,
+    MAX(recorded_at) AS last_reading
+FROM sensor_readings;
+
+DESCRIBE sensor_readings;
+
+USE cold_chain_db;
+
+SELECT
+    product_id,
+    min_humidity,
+    max_humidity,
+    policy_status
+FROM threshold_policies
+WHERE policy_status = 'ACTIVE';
+
+SELECT
+    COUNT(*) AS total_readings,
+    COUNT(DISTINCT sr.shipment_id) AS total_shipments,
+    COUNT(DISTINCT s.product_id) AS total_products,
+    COUNT(p.policy_id) AS matched_policies
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE';
+   
+   USE cold_chain_db;
+
+UPDATE sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE'
+SET sr.humidity_pct =
+    ROUND(
+        p.min_humidity +
+        MOD(
+            CRC32(CONCAT(sr.reading_id, '-', sr.shipment_id)),
+            FLOOR((p.max_humidity - p.min_humidity) * 100) + 1
+        ) / 100,
+        2
+    )
+WHERE sr.humidity_pct IS NULL;
+
+SELECT
+    COUNT(*) AS total_readings,
+    COUNT(humidity_pct) AS humidity_readings,
+    ROUND(AVG(humidity_pct), 2) AS average_humidity,
+    MIN(humidity_pct) AS minimum_humidity,
+    MAX(humidity_pct) AS maximum_humidity
+FROM sensor_readings;
+
+SELECT
+    sr.reading_id,
+    sr.shipment_id,
+    sr.humidity_pct,
+    s.product_id,
+    p.min_humidity,
+    p.max_humidity
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE'
+LIMIT 10;
+
+USE cold_chain_db;
+
+UPDATE sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE'
+SET sr.humidity_pct = ROUND(
+    p.min_humidity +
+    RAND() * (p.max_humidity - p.min_humidity),
+    2
+)
+WHERE sr.humidity_pct IS NULL;
+
+SELECT
+    COUNT(*) AS total_readings,
+    COUNT(humidity_pct) AS humidity_readings,
+    ROUND(AVG(humidity_pct), 2) AS average_humidity,
+    MIN(humidity_pct) AS minimum_humidity,
+    MAX(humidity_pct) AS maximum_humidity
+FROM sensor_readings;
+
+USE cold_chain_db;
+
+USE cold_chain_db;
+
+-- Temporarily disable safe update mode
+SET SQL_SAFE_UPDATES = 0;
+
+-- Update humidity values
+UPDATE sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+SET sr.humidity_pct =
+    ROUND(
+        p.min_humidity +
+        RAND() * (p.max_humidity - p.min_humidity),
+        2
+    )
+WHERE sr.humidity_pct IS NULL
+  AND p.policy_status = 'ACTIVE';
+
+-- Enable safe update mode again
+SET SQL_SAFE_UPDATES = 1;
+
+SELECT
+    COUNT(*) AS total_readings,
+    COUNT(humidity_pct) AS humidity_readings,
+    ROUND(AVG(humidity_pct), 2) AS average_humidity,
+    MIN(humidity_pct) AS minimum_humidity,
+    MAX(humidity_pct) AS maximum_humidity
+FROM sensor_readings;
+
+
+USE cold_chain_db;
+
+SELECT
+    s.product_id,
+    COUNT(*) AS total_readings,
+    SUM(
+        CASE
+            WHEN sr.humidity_pct < p.min_humidity
+              OR sr.humidity_pct > p.max_humidity
+            THEN 1
+            ELSE 0
+        END
+    ) AS humidity_violations
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE'
+WHERE sr.humidity_pct IS NOT NULL
+GROUP BY s.product_id
+ORDER BY s.product_id;
+
+
+SELECT
+    s.product_id,
+    COUNT(*) AS total_readings,
+    SUM(
+        CASE
+            WHEN sr.temperature_c < p.min_temperature
+              OR sr.temperature_c > p.max_temperature
+            THEN 1
+            ELSE 0
+        END
+    ) AS temperature_violations
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE'
+GROUP BY s.product_id
+ORDER BY s.product_id;
+
+SELECT
+    s.product_id,
+    p.min_temperature,
+    p.max_temperature,
+    MIN(sr.temperature_c) AS actual_min_temperature,
+    MAX(sr.temperature_c) AS actual_max_temperature,
+    ROUND(AVG(sr.temperature_c), 2) AS average_temperature,
+    COUNT(*) AS total_readings
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE'
+GROUP BY
+    s.product_id,
+    p.min_temperature,
+    p.max_temperature
+ORDER BY s.product_id;
+
+SELECT
+    s.product_id,
+    SUM(CASE
+        WHEN sr.temperature_c < p.min_temperature
+        THEN 1 ELSE 0
+    END) AS below_limit,
+
+    SUM(CASE
+        WHEN sr.temperature_c BETWEEN
+             p.min_temperature AND p.max_temperature
+        THEN 1 ELSE 0
+    END) AS within_limit,
+
+    SUM(CASE
+        WHEN sr.temperature_c > p.max_temperature
+        THEN 1 ELSE 0
+    END) AS above_limit
+
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies p
+    ON s.product_id = p.product_id
+   AND p.policy_status = 'ACTIVE'
+
+GROUP BY s.product_id
+ORDER BY s.product_id;
+
+SELECT
+    s.product_id,
+    sr.temperature_c,
+    COUNT(*) AS reading_count
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+GROUP BY
+    s.product_id,
+    sr.temperature_c
+ORDER BY
+    s.product_id,
+    sr.temperature_c;
+    
+    SELECT
+    sr.shipment_id,
+    s.product_id,
+    COUNT(*) AS high_temperature_readings,
+    MIN(sr.recorded_at) AS first_high_reading,
+    MAX(sr.recorded_at) AS last_high_reading
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+WHERE sr.temperature_c = 9.50
+GROUP BY
+    sr.shipment_id,
+    s.product_id
+ORDER BY
+    sr.shipment_id;
+    
+SELECT
+    excursion_id,
+    shipment_id,
+    excursion_type,
+    start_time,
+    end_time,
+    duration_minutes,
+    severity,
+    excursion_status
+FROM excursions
+WHERE excursion_type = 'TEMPERATURE'
+ORDER BY shipment_id, start_time;
+
+
+SELECT
+    e.excursion_id,
+    e.shipment_id,
+    e.duration_minutes,
+    e.start_reading_id,
+    sr1.recorded_at AS actual_start_time,
+    sr1.temperature_c AS start_temperature,
+    e.end_reading_id,
+    sr2.recorded_at AS actual_end_time,
+    sr2.temperature_c AS end_temperature
+FROM excursions e
+LEFT JOIN sensor_readings sr1
+    ON e.start_reading_id = sr1.reading_id
+LEFT JOIN sensor_readings sr2
+    ON e.end_reading_id = sr2.reading_id
+WHERE e.excursion_type = 'TEMPERATURE'
+ORDER BY e.shipment_id, e.start_time;
+
+
+SELECT
+    e.excursion_id,
+    e.shipment_id,
+    s.product_id,
+    e.policy_id AS excursion_policy_id,
+    tp.policy_id AS product_policy_id,
+    tp.min_temperature,
+    tp.max_temperature
+FROM excursions e
+JOIN shipments s
+    ON e.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON e.policy_id = tp.policy_id
+WHERE e.excursion_type = 'TEMPERATURE'
+ORDER BY e.shipment_id, e.start_time;
+
+
+SELECT
+    s.product_id,
+    COUNT(*) AS total_readings,
+    SUM(CASE
+        WHEN sr.temperature_c < tp.min_temperature THEN 1
+        ELSE 0
+    END) AS below_limit,
+    SUM(CASE
+        WHEN sr.temperature_c BETWEEN tp.min_temperature
+             AND tp.max_temperature THEN 1
+        ELSE 0
+    END) AS within_limit,
+    SUM(CASE
+        WHEN sr.temperature_c > tp.max_temperature THEN 1
+        ELSE 0
+    END) AS above_limit
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+   AND tp.policy_status = 'ACTIVE'
+GROUP BY s.product_id
+ORDER BY s.product_id;
+
+DESCRIBE shipments;
+
+SELECT
+    shipment_id,
+    planned_departure,
+    actual_departure,
+    planned_delivery,
+    actual_delivery,
+    status,
+    CASE
+        WHEN actual_delivery < actual_departure
+        THEN 'DELIVERED BEFORE DEPARTURE'
+        ELSE 'OK'
+    END AS timeline_check
+FROM shipments
+WHERE actual_departure IS NOT NULL
+  AND actual_delivery IS NOT NULL
+ORDER BY shipment_id
+LIMIT 20;
+
+
+SELECT
+    COUNT(*) AS total_shipments,
+    SUM(
+        CASE
+            WHEN actual_delivery < actual_departure THEN 1
+            ELSE 0
+        END
+    ) AS delivered_before_departure,
+    SUM(
+        CASE
+            WHEN actual_delivery = actual_departure THEN 1
+            ELSE 0
+        END
+    ) AS same_time,
+    SUM(
+        CASE
+            WHEN actual_delivery > actual_departure THEN 1
+            ELSE 0
+        END
+    ) AS delivered_after_departure
+FROM shipments
+WHERE actual_departure IS NOT NULL
+  AND actual_delivery IS NOT NULL;
+  
+  SELECT
+    shipment_id,
+    COUNT(*) AS total_readings,
+    MIN(recorded_at) AS first_reading,
+    MAX(recorded_at) AS last_reading,
+    TIMESTAMPDIFF(
+        MINUTE,
+        MIN(recorded_at),
+        MAX(recorded_at)
+    ) AS total_minutes
+FROM sensor_readings
+GROUP BY shipment_id
+ORDER BY shipment_id
+LIMIT 10;
+
+use cold_chain_db;
+
+WITH reading_gaps AS (
+    SELECT
+        shipment_id,
+        recorded_at,
+        LAG(recorded_at) OVER (
+            PARTITION BY shipment_id
+            ORDER BY recorded_at
+        ) AS previous_reading
+    FROM sensor_readings
+)
+SELECT
+    shipment_id,
+    previous_reading,
+    recorded_at,
+    TIMESTAMPDIFF(
+        MINUTE,
+        previous_reading,
+        recorded_at
+    ) AS gap_minutes
+FROM reading_gaps
+WHERE previous_reading IS NOT NULL
+  AND TIMESTAMPDIFF(
+        MINUTE,
+        previous_reading,
+        recorded_at
+      ) > 5
+ORDER BY shipment_id, recorded_at;
+
+SELECT
+    quality_status,
+    COUNT(*) AS total_readings
+FROM sensor_readings
+GROUP BY quality_status;
+
+
+SELECT
+    COUNT(*) AS total_readings,
+    SUM(CASE
+        WHEN temperature_c < -50 OR temperature_c > 60
+        THEN 1 ELSE 0
+    END) AS invalid_temperature_readings,
+    SUM(CASE
+        WHEN humidity_pct < 0 OR humidity_pct > 100
+        THEN 1 ELSE 0
+    END) AS invalid_humidity_readings
+FROM sensor_readings;
+
+SELECT
+    COUNT(*) AS total_readings,
+    SUM(CASE WHEN temperature_c IS NULL THEN 1 ELSE 0 END) AS missing_temperature,
+    SUM(CASE WHEN humidity_pct IS NULL THEN 1 ELSE 0 END) AS missing_humidity
+FROM sensor_readings;
+
+SELECT
+    s.shipment_id,
+    s.product_id,
+    COUNT(*) AS total_readings,
+    SUM(CASE
+        WHEN sr.temperature_c < tp.min_temperature THEN 1
+        ELSE 0
+    END) AS below_minimum,
+    SUM(CASE
+        WHEN sr.temperature_c > tp.max_temperature THEN 1
+        ELSE 0
+    END) AS above_maximum,
+    SUM(CASE
+        WHEN sr.temperature_c BETWEEN tp.min_temperature AND tp.max_temperature THEN 1
+        ELSE 0
+    END) AS within_range
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+   AND tp.policy_status = 'ACTIVE'
+GROUP BY
+    s.shipment_id,
+    s.product_id
+ORDER BY s.shipment_id;
+
+SELECT
+    s.product_id,
+    COUNT(*) AS total_readings,
+    SUM(
+        CASE
+            WHEN sr.humidity_pct < tp.min_humidity
+              OR sr.humidity_pct > tp.max_humidity
+            THEN 1
+            ELSE 0
+        END
+    ) AS humidity_violations,
+    SUM(
+        CASE
+            WHEN sr.humidity_pct BETWEEN tp.min_humidity AND tp.max_humidity
+            THEN 1
+            ELSE 0
+        END
+    ) AS within_range
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+   AND tp.policy_status = 'ACTIVE'
+GROUP BY s.product_id
+ORDER BY s.product_id;
+
+SELECT
+    reading_id,
+    shipment_id,
+    sensor_id,
+    recorded_at,
+    temperature_c,
+    humidity_pct,
+    quality_status
+FROM sensor_readings
+WHERE temperature_c < -50
+   OR temperature_c > 60
+   OR humidity_pct < 0
+   OR humidity_pct > 100
+ORDER BY recorded_at
+LIMIT 20;
+
+SELECT
+    reading_id,
+    shipment_id,
+    temperature_c,
+    humidity_pct,
+    recorded_at
+FROM sensor_readings
+ORDER BY reading_id
+LIMIT 5;
+
+
+UPDATE sensor_readings
+SET
+    temperature_c = 75.00,
+    quality_status = 'SUSPICIOUS'
+WHERE reading_id = 'RDG-SNS-CNT-000001-202601010600';
+SELECT
+    reading_id,
+    shipment_id,
+    temperature_c,
+    humidity_pct,
+    quality_status,
+    recorded_at
+FROM sensor_readings
+WHERE reading_id = 'RDG-SNS-CNT-000001-202601010600';
+
+SELECT
+    reading_id,
+    shipment_id,
+    recorded_at,
+    temperature_c,
+    quality_status
+FROM sensor_readings
+WHERE shipment_id = 'SHP-2026-000001'
+  AND recorded_at BETWEEN '2026-01-01 06:20:00'
+                      AND '2026-01-01 06:35:00'
+ORDER BY recorded_at;
+
+SELECT
+    shipment_id,
+    actual_departure,
+    actual_delivery,
+    status
+FROM shipments
+WHERE actual_delivery < actual_departure;
+
+UPDATE shipments
+SET actual_delivery = DATE_SUB(actual_departure, INTERVAL 1 HOUR)
+WHERE shipment_id = 'SHP-2026-000001';
+
+
+SELECT
+    shipment_id,
+    actual_departure,
+    actual_delivery,
+    TIMESTAMPDIFF(
+        MINUTE,
+        actual_delivery,
+        actual_departure
+    ) AS delivered_before_departure_minutes
+FROM shipments
+WHERE shipment_id = 'SHP-2026-000001';
+
+SELECT
+    sr.shipment_id,
+    s.product_id,
+    sr.sensor_id,
+    tp.policy_id,
+    tp.min_temperature,
+    tp.max_temperature
+FROM sensor_readings sr
+JOIN shipments s
+    ON sr.shipment_id = s.shipment_id
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+   AND tp.policy_status = 'ACTIVE'
+WHERE sr.shipment_id = 'SHP-2026-000001'
+LIMIT 5;
+
+SELECT
+    s.shipment_id,
+    s.product_id,
+    tp.policy_id,
+    tp.min_temperature,
+    tp.max_temperature,
+    tp.policy_status
+FROM shipments s
+JOIN threshold_policies tp
+    ON s.product_id = tp.product_id
+WHERE s.shipment_id = 'SHP-2026-000001'
+ORDER BY tp.effective_from DESC;
+SELECT
+    policy_id,
+    product_id,
+    min_temperature,
+    max_temperature,
+    min_humidity,
+    max_humidity,
+    policy_status
+FROM threshold_policies
+WHERE policy_status = 'ACTIVE'
+ORDER BY product_id;
+
+SELECT
+    s.shipment_id,
+    s.product_id,
+    correct.policy_id AS correct_policy,
+    correct.min_temperature AS correct_min,
+    correct.max_temperature AS correct_max,
+    wrong.policy_id AS wrong_policy,
+    wrong.min_temperature AS wrong_min,
+    wrong.max_temperature AS wrong_max
+FROM shipments s
+JOIN threshold_policies correct
+    ON correct.product_id = s.product_id
+   AND correct.policy_status = 'ACTIVE'
+JOIN threshold_policies wrong
+    ON wrong.policy_id = 'POL-0004'
+WHERE s.shipment_id = 'SHP-2026-000001';
+
+
+SELECT
+    excursion_id,
+    shipment_id,
+    start_time,
+    end_time,
+    duration_minutes,
+    TIMESTAMPDIFF(
+        MINUTE,
+        start_time,
+        end_time
+    ) AS actual_duration_minutes
+FROM excursions
+ORDER BY duration_minutes DESC
+LIMIT 10;
+
+UPDATE excursions
+SET duration_minutes = 60
+WHERE excursion_id = 'EXC-000009-001';
+
+SELECT
+    excursion_id,
+    shipment_id,
+    start_time,
+    end_time,
+    duration_minutes AS recorded_duration,
+    TIMESTAMPDIFF(
+        MINUTE,
+        start_time,
+        end_time
+    ) AS actual_duration,
+    TIMESTAMPDIFF(
+        MINUTE,
+        start_time,
+        end_time
+    ) - duration_minutes AS undercounted_minutes
+FROM excursions
+WHERE excursion_id = 'EXC-000009-001';
+
+SELECT
+    sr.reading_id,
+    sr.shipment_id,
+    sr.recorded_at,
+    sr.temperature_c,
+    e.excursion_id
+FROM sensor_readings sr
+LEFT JOIN excursions e
+    ON sr.reading_id = e.start_reading_id
+    OR sr.reading_id = e.end_reading_id
+WHERE sr.shipment_id = 'SHP-2026-000001'
+  AND sr.recorded_at = '2026-01-01 06:25:00';
+  
+  SELECT
+    shipment_id,
+    COUNT(*) AS total_readings,
+    MIN(recorded_at) AS first_reading,
+    MAX(recorded_at) AS last_reading,
+    TIMESTAMPDIFF(
+        MINUTE,
+        MIN(recorded_at),
+        MAX(recorded_at)
+    ) AS total_duration_minutes
+FROM sensor_readings
+GROUP BY shipment_id
+ORDER BY shipment_id
+LIMIT 10;
+
+SELECT
+    sr.reading_id,
+    sr.shipment_id,
+    sr.recorded_at,
+    sr.temperature_c
+FROM sensor_readings sr
+LEFT JOIN excursions e
+    ON sr.reading_id = e.start_reading_id
+    OR sr.reading_id = e.end_reading_id
+WHERE sr.shipment_id = 'SHP-2026-000001'
+  AND sr.recorded_at = '2026-01-01 06:25:00'
+  AND e.excursion_id IS NULL;
+  
+  WITH reading_gaps AS (
+    SELECT
+        shipment_id,
+        recorded_at,
+        LAG(recorded_at) OVER (
+            PARTITION BY shipment_id
+            ORDER BY recorded_at
+        ) AS previous_reading
+    FROM sensor_readings
+)
+SELECT
+    shipment_id,
+    previous_reading,
+    recorded_at,
+    TIMESTAMPDIFF(
+        MINUTE,
+        previous_reading,
+        recorded_at
+    ) AS gap_minutes
+FROM reading_gaps
+WHERE previous_reading IS NOT NULL
+  AND TIMESTAMPDIFF(
+      MINUTE,
+      previous_reading,
+      recorded_at
+  ) > 5
+ORDER BY shipment_id, recorded_at;
+
+SELECT
+    sr.reading_id,
+    sr.recorded_at,
+    e.excursion_id
+FROM sensor_readings sr
+LEFT JOIN excursions e
+    ON sr.reading_id = e.start_reading_id
+    OR sr.reading_id = e.end_reading_id
+WHERE sr.shipment_id = 'SHP-2026-000001'
+  AND sr.recorded_at = '2026-01-01 06:25:00';
+  
+DELETE FROM sensor_readings
+WHERE reading_id = 'RDG-SNS-CNT-000001-202601010625';
+
+WITH reading_gaps AS (
+    SELECT
+        shipment_id,
+        recorded_at,
+        LAG(recorded_at) OVER (
+            PARTITION BY shipment_id
+            ORDER BY recorded_at
+        ) AS previous_reading
+    FROM sensor_readings
+)
+SELECT
+    shipment_id,
+    previous_reading,
+    recorded_at,
+    TIMESTAMPDIFF(
+        MINUTE,
+        previous_reading,
+        recorded_at
+    ) AS gap_minutes
+FROM reading_gaps
+WHERE shipment_id = 'SHP-2026-000001'
+  AND previous_reading IS NOT NULL
+  AND TIMESTAMPDIFF(
+      MINUTE,
+      previous_reading,
+      recorded_at
+  ) > 5;
+  SELECT 'Physical range violation' AS anomaly,
+       COUNT(*) AS affected_records
+FROM sensor_readings
+WHERE temperature_c < -50 OR temperature_c > 60
+   OR humidity_pct < 0 OR humidity_pct > 100
+
+UNION ALL
+
+SELECT 'Missing sensor interval',
+       COUNT(*)
+FROM (
+    SELECT
+        shipment_id,
+        recorded_at,
+        LAG(recorded_at) OVER (
+            PARTITION BY shipment_id ORDER BY recorded_at
+        ) AS previous_reading
+    FROM sensor_readings
+) AS gaps
+WHERE TIMESTAMPDIFF(MINUTE, previous_reading, recorded_at) > 5
+
+UNION ALL
+
+SELECT 'Delivered before departure',
+       COUNT(*)
+FROM shipments
+WHERE actual_delivery < actual_departure
+
+UNION ALL
+
+SELECT 'Wrong excursion policy',
+       COUNT(*)
+FROM excursions e
+JOIN shipments s ON e.shipment_id = s.shipment_id
+JOIN threshold_policies tp ON e.policy_id = tp.policy_id
+WHERE tp.product_id <> s.product_id
+
+UNION ALL
+
+SELECT 'Undercounted excursion duration',
+       COUNT(*)
+FROM excursions
+WHERE duration_minutes < TIMESTAMPDIFF(
+    MINUTE, start_time, end_time
+);
+  

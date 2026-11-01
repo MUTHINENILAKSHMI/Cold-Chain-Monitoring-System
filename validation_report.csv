@@ -1,0 +1,13 @@
+table_name,row_count
+products,10
+shipments,1000
+containers,300
+sensors,300
+threshold_policies,10
+shipment_containers,1000
+route_stops,3000
+container_sensor_assignments,300
+sensor_readings,5759
+excursions,39
+custody_events,3000
+corrective_actions,39

@@ -1,0 +1,6 @@
+anomaly_id,anomaly_type,shipment_id,record_id,expected_issue,original_value,anomalous_value
+1,PHYSICAL_RANGE_VIOLATION,SHP-2026-000001,RDG-SNS-CNT-000001-202601010600,Temperature exceeds physical sensor range,9.50,75.00
+2,MISSING_SENSOR_INTERVAL,SHP-2026-000001,RDG-SNS-CNT-000001-202601010625,Missing 5-minute sensor reading,Reading exists,Reading deleted
+3,DELIVERED_BEFORE_DEPARTURE,SHP-2026-000001,SHP-2026-000001,Delivery timestamp before departure,Original delivery time,Departure minus 1 hour
+4,WRONG_PRODUCT_THRESHOLD,SHP-2026-000001,POL-0004,Wrong product policy applied,PRD-0001 uses POL-0001,PRD-0001 incorrectly compared with POL-0004
+5,EXCURSION_DURATION_UNDERCOUNT,SHP-2026-000009,EXC-000009-001,Recorded duration is lower than actual duration,2875,60
